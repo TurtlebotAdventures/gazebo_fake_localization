@@ -23,6 +23,8 @@ private:
   tf2_ros::TransformBroadcaster tf_pub_;
   ros::Subscriber state_sub_;
   ros::Timer timer_;
+
+  ros::Time last_time_ = ros::Time(0);
   
   std::string odom_frame_id_, base_frame_id_, gazebo_frame_id_;
   
@@ -57,12 +59,17 @@ public:
       {
         geometry_msgs::TransformStamped to_r = tf_buffer_.lookupTransform(base_frame_id_,odom_frame_id_, tr_m->header.stamp, ros::Duration(.1));
         geometry_msgs::TransformStamped t_out;
-        
+
         tf2::doTransform(to_r, t_out, *tr_m);
-        
+
         t_out.child_frame_id = odom_frame_id_;
         
-        tf_pub_.sendTransform(t_out);
+        if(last_time_ < t_out.header.stamp)
+        {
+          tf_pub_.sendTransform(t_out);
+          last_time_ = t_out.header.stamp;
+        }
+        
       }
       catch (tf2::TransformException &ex)
       {
