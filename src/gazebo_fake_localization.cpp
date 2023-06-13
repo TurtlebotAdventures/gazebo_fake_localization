@@ -63,7 +63,7 @@ public:
         tf2::doTransform(to_r, t_out, *tr_m);
 
         t_out.child_frame_id = odom_frame_id_;
-        t_out.header.stamp += ros::Duration(0.01);
+        t_out.header.stamp += ros::Duration(0.1);
         if(last_time_ < t_out.header.stamp)
         {
           tf_pub_.sendTransform(t_out);
