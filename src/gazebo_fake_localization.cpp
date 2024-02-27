@@ -31,6 +31,8 @@ private:
   gazebo_msgs::ModelStates::ConstPtr states_;
   
   geometry_msgs::TransformStamped::Ptr tr_m_;
+
+  bool zero_z_;
   
 public:
 
@@ -45,7 +47,7 @@ public:
     gazebo_frame_id_ = "map";
     model_name_ = "mobile_base";
 
-
+    zero_z_ = false;
   }
   
   
@@ -90,7 +92,8 @@ public:
       t->child_frame_id = base_frame_id_;
       t->transform.translation.x = robot_state.position.x;
       t->transform.translation.y = robot_state.position.y;
-      t->transform.translation.z = robot_state.position.z;
+      if(!zero_z_)
+        t->transform.translation.z = robot_state.position.z;
       t->transform.rotation = robot_state.orientation;
       
     }
@@ -146,6 +149,8 @@ public:
     }
     
     pnh_.getParam("model_name", model_name_);
+
+    pnh_.getParam("zero_z", zero_z_);
     
     double pub_freq = -1;
     pnh_.getParam("freq", pub_freq);
