@@ -33,6 +33,7 @@ private:
   geometry_msgs::TransformStamped::Ptr tr_m_;
 
   bool zero_z_;
+  ros::Time last_update_time_;
   
 public:
 
@@ -65,6 +66,7 @@ public:
         t_out.child_frame_id = odom_frame_id_;
         
         tf_pub_.sendTransform(t_out);
+        last_update_time_ = t_out.header.stamp;
       }
       catch (tf2::TransformException &ex)
       {
@@ -108,7 +110,7 @@ public:
     {
       geometry_msgs::TransformStamped::Ptr t = getModelTransform(states);
       
-      if(t)
+      if(t && t->header.stamp > last_update_time_)
       {
         updateTransform(t);
       }
