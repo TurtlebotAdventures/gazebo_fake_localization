@@ -24,7 +24,7 @@ private:
   ros::Subscriber state_sub_;
   ros::Timer timer_;
   
-  std::string odom_frame_id_, base_frame_id_, gazebo_frame_id_;
+  std::string output_frame_id_, odom_frame_id_, base_frame_id_, gazebo_frame_id_, publish_frame_id;
   
   std::string model_name_;
   
@@ -63,7 +63,7 @@ public:
         
         tf2::doTransform(to_r, t_out, *tr_m);
         
-        t_out.child_frame_id = odom_frame_id_;
+        t_out.child_frame_id = output_frame_id_;
         
         tf_pub_.sendTransform(t_out);
         last_update_time_ = t_out.header.stamp;
@@ -148,6 +148,8 @@ public:
     {
       pnh_.getParam("base_frame_id", base_frame_id_);
       pnh_.getParam("odom_frame_id", odom_frame_id_);
+      // If not used, should just be the same as the odom_frame_id, which is how the original implementation worked
+      pnh_.param("output_frame_id", output_frame_id_, odom_frame_id_);
     }
     
     pnh_.getParam("model_name", model_name_);
