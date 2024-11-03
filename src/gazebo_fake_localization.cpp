@@ -51,16 +51,24 @@ public:
     zero_z_ = false;
   }
   
-  
+  // tf naming convention: ttarget_source refers to the transform of the target frame in the source reference frame
+  //                       r = robot (base_frame_id_), m = map (gazebo_frame_id_), o = odom (odom_frame_id_)
+  //    ex.) tr_m is the transform of the robot in the map reference frame. i.e. it is the ground truth robot pose
   void updateTransform(geometry_msgs::TransformStamped::Ptr tr_m)
   {
     if(tr_m)
     {
       try
       {
-        geometry_msgs::TransformStamped to_r = tf_buffer_.lookupTransform(base_frame_id_,odom_frame_id_, tr_m->header.stamp, ros::Duration(.1));
+        geometry_msgs::TransformStamped to_r = tf_buffer_.lookupTransform(base_frame_id_, odom_frame_id_, tr_m->header.stamp, ros::Duration(.1));
         geometry_msgs::TransformStamped t_out;
         
+        /** \brief tf2::doTransform =Apply a geometry_msgs TransformStamped to an geometry_msgs Transform type.
+         * This function is a specialization of the doTransform template defined in tf2/convert.h.
+         * \param t_in The frame to transform, as a timestamped Transform3 message.
+         * \param t_out The frame transform, as a timestamped Transform3 message.
+         * \param transform The timestamped transform to apply, as a TransformStamped message.
+         */
         tf2::doTransform(to_r, t_out, *tr_m);
         
         t_out.child_frame_id = output_frame_id_;
@@ -148,10 +156,11 @@ public:
     {
       pnh_.getParam("base_frame_id", base_frame_id_);
       pnh_.getParam("odom_frame_id", odom_frame_id_);
-      // If not used, should just be the same as the odom_frame_id, which is how the original implementation worked
-      pnh_.param("output_frame_id", output_frame_id_, odom_frame_id_);
     }
     
+    // If not used, should just be the same as the odom_frame_id, which is how the original implementation worked
+    pnh_.param("output_frame_id", output_frame_id_, odom_frame_id_);
+
     pnh_.getParam("model_name", model_name_);
 
     pnh_.getParam("zero_z", zero_z_);
