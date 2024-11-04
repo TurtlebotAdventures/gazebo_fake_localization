@@ -51,7 +51,7 @@ public:
     zero_z_ = false;
   }
   
-  // tf naming convention: ttarget_source refers to the transform of the target frame in the source reference frame
+  // tf naming convention: (my current and very unsure understanding) ttarget_source refers to the transform of the target frame in the source reference frame
   //                       r = robot (base_frame_id_), m = map (gazebo_frame_id_), o = odom (odom_frame_id_)
   //    ex.) tr_m is the transform of the robot in the map reference frame. i.e. it is the ground truth robot pose
   void updateTransform(geometry_msgs::TransformStamped::Ptr tr_m)
@@ -69,7 +69,7 @@ public:
          * \param t_out The frame transform, as a timestamped Transform3 message.
          * \param transform The timestamped transform to apply, as a TransformStamped message.
          */
-        tf2::doTransform(to_r, t_out, *tr_m);
+        tf2::doTransform(*tr_m, t_out, to_r); // This has the *tr_m and to_r switched compared to the original code - seems wrong and weird but works
         
         t_out.child_frame_id = output_frame_id_;
         
