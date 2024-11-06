@@ -1,200 +1,153 @@
+/**
+ * Carl Cort (ccort6)
+ * 11/05/24
+ * Modified from main branch to support renaming of tf child topic name and a derived 
+ * class, DirectPoseGazeboFakeLocalization, which publishes the tf from the fixed 
+ * gazebo frame -> robot base_footprint instead of the map -> odom tf. This provides
+ * direct access to the gt_pose (robot pose in the gazebo frame).
+ */
 
-#include <ros/ros.h>
-#include <ros/topic.h>
+#include "gazebo_fake_localization/gazebo_fake_localization.hpp"
 
-#include <tf2_ros/transform_broadcaster.h>
-#include <tf2_ros/transform_listener.h>
-
-#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
-#include <nav_msgs/Odometry.h>
-
-
-#include <gazebo_msgs/ModelStates.h>
-#include <gazebo_msgs/ModelState.h>
-
-
-class GazeboFakeLocalization
+GazeboFakeLocalization::GazeboFakeLocalization(ros::NodeHandle& nh, ros::NodeHandle& pnh) :
+  nh_(nh),
+  pnh_(pnh),
+  tf_buffer_(),
+  tf_listener_(tf_buffer_)
 {
-private:
-  ros::NodeHandle nh_, pnh_;
-  
-  tf2_ros::Buffer tf_buffer_;
-  tf2_ros::TransformListener tf_listener_;
-  tf2_ros::TransformBroadcaster tf_pub_;
-  ros::Subscriber state_sub_;
-  ros::Timer timer_;
-  
-  std::string output_frame_id_, odom_frame_id_, base_frame_id_, gazebo_frame_id_, publish_frame_id;
-  
-  std::string model_name_;
-  
-  gazebo_msgs::ModelStates::ConstPtr states_;
-  
-  geometry_msgs::TransformStamped::Ptr tr_m_;
+  odom_frame_id_ = "odom";
+  base_frame_id_ = "base_footprint";
+  gazebo_frame_id_ = "map";
+  model_name_ = "mobile_base";
 
-  bool zero_z_;
-  ros::Time last_update_time_;
-  
-public:
+  zero_z_ = false;
+}
 
-  GazeboFakeLocalization(ros::NodeHandle& nh, ros::NodeHandle& pnh) :
-    nh_(nh),
-    pnh_(pnh),
-    tf_buffer_(),
-    tf_listener_(tf_buffer_)
-  {
-    odom_frame_id_ = "odom";
-    base_frame_id_ = "base_footprint";
-    gazebo_frame_id_ = "map";
-    model_name_ = "mobile_base";
-
-    zero_z_ = false;
-  }
-  
-  // tf naming convention: (my current and very unsure understanding) ttarget_source refers to the transform of the target frame in the source reference frame
-  //                       r = robot (base_frame_id_), m = map (gazebo_frame_id_), o = odom (odom_frame_id_)
-  //    ex.) tr_m is the transform of the robot in the map reference frame. i.e. it is the ground truth robot pose
-  void updateTransform(geometry_msgs::TransformStamped::Ptr tr_m)
-  {
-    if(tr_m)
-    {
-      try
-      {
-        geometry_msgs::TransformStamped to_r = tf_buffer_.lookupTransform(base_frame_id_, odom_frame_id_, tr_m->header.stamp, ros::Duration(.1));
-        geometry_msgs::TransformStamped t_out;
-        
-        /** \brief tf2::doTransform =Apply a geometry_msgs TransformStamped to an geometry_msgs Transform type.
-         * This function is a specialization of the doTransform template defined in tf2/convert.h.
-         * \param t_in The frame to transform, as a timestamped Transform3 message.
-         * \param t_out The frame transform, as a timestamped Transform3 message.
-         * \param transform The timestamped transform to apply, as a TransformStamped message.
-         */
-        tf2::doTransform(*tr_m, t_out, to_r); // This has the *tr_m and to_r switched compared to the original code - seems wrong and weird but works
-        
-        t_out.child_frame_id = output_frame_id_;
-        
-        tf_pub_.sendTransform(t_out);
-        last_update_time_ = t_out.header.stamp;
-      }
-      catch (tf2::TransformException &ex)
-      {
-        ROS_WARN("%s",ex.what());
-      }   
-    }
-
-  }
-
-  geometry_msgs::TransformStamped::Ptr getModelTransform(const gazebo_msgs::ModelStates::ConstPtr& states)
-  {
-    geometry_msgs::TransformStamped::Ptr t;
-    
-    std::vector<std::string>::const_iterator iter = std::find(states->name.begin(), states->name.end(), model_name_);
-    
-    if( iter != states->name.end() )
-    {
-      int index = std::distance(states->name.begin(), iter);
-      const geometry_msgs::Pose& robot_state = states->pose[index];
-      
-      t = boost::make_shared<geometry_msgs::TransformStamped>();
-      
-      t->header.stamp = ros::Time::now();
-      t->header.frame_id = gazebo_frame_id_;
-      t->child_frame_id = base_frame_id_;
-      t->transform.translation.x = robot_state.position.x;
-      t->transform.translation.y = robot_state.position.y;
-      if(!zero_z_)
-        t->transform.translation.z = robot_state.position.z;
-      t->transform.rotation = robot_state.orientation;
-      
-    }
-    
-    return t;
-  }
-  
-  
-  void updateTransform(const gazebo_msgs::ModelStates::ConstPtr& states )
-  {
-    if(states)
-    {
-      geometry_msgs::TransformStamped::Ptr t = getModelTransform(states);
-      
-      if(t && t->header.stamp > last_update_time_)
-      {
-        updateTransform(t);
-      }
-    }
-  }
-  
-  void updateTransform()
-  {
-    updateTransform(states_);
-  }
-  
-  void stateCB(const gazebo_msgs::ModelStates::ConstPtr& states )
-  {
-    states_ = states;
-  }
-
-  void timerCB(const ros::TimerEvent&)
-  {
-      updateTransform();
-  }
-
-  
-  void init()
-  {
-    bool use_odom=false;
-    pnh_.getParam("use_odom", use_odom);
-    
-    if(use_odom)
-    {
-      nav_msgs::Odometry::ConstPtr odom_msg = ros::topic::waitForMessage<nav_msgs::Odometry>("odom", nh_);
-      odom_frame_id_ = odom_msg->header.frame_id;
-      base_frame_id_ = odom_msg->child_frame_id;
-    }
-    else
-    {
-      pnh_.getParam("base_frame_id", base_frame_id_);
-      pnh_.getParam("odom_frame_id", odom_frame_id_);
-    }
-    
-    // If not used, should just be the same as the odom_frame_id, which is how the original implementation worked
-    pnh_.param("output_frame_id", output_frame_id_, odom_frame_id_);
-
-    pnh_.getParam("model_name", model_name_);
-
-    pnh_.getParam("zero_z", zero_z_);
-    
-    double pub_freq = -1;
-    pnh_.getParam("freq", pub_freq);
-    
-    if(pub_freq <=0)
-    {
-      state_sub_ = nh_.subscribe("/gazebo/model_states", 1, &GazeboFakeLocalization::updateTransform, this);
-    }
-    else
-    {
-      state_sub_ = nh_.subscribe("/gazebo/model_states", 1, &GazeboFakeLocalization::stateCB, this);
-      
-      timer_ = nh_.createTimer(ros::Duration(1.0/pub_freq), &GazeboFakeLocalization::timerCB, this);
-    }
-    
-    
-
-  }
-
-};
-
-
-int main(int argc, char** argv)
+// tf naming convention: Ttarget_source refers to the transform of the target frame in the source reference frame
+//                       i.e. the tf that defines source -> target.
+//                       r = robot (base_frame_id_), m = map (gazebo_frame_id_), o = odom (odom_frame_id_)
+//    ex.) Tr_m is the transform of the robot in the map reference frame. i.e. it is the ground truth robot pose
+void GazeboFakeLocalization::updateTransform(geometry_msgs::TransformStamped::Ptr Tr_m)
 {
-  ros::init(argc,argv,"gazebo_fake_localization");
+  if(Tr_m)
+  {
+    try
+    {
+      geometry_msgs::TransformStamped To_r = tf_buffer_.lookupTransform(base_frame_id_, odom_frame_id_, Tr_m->header.stamp, ros::Duration(.1));
+      geometry_msgs::TransformStamped To_m;
+      
+      // Applies the Tr_m (robot in map frame i.e. gazebo_world -> robot) transform to the
+      // To_r (odom frame in robot frame i.e. robot -> odom) to get To_m (odom in map frame i.e. map -> odom) tf
+      tf2::doTransform(To_r, To_m, *Tr_m);
+      
+      To_m.child_frame_id = output_frame_id_;
+      
+      tf_pub_.sendTransform(To_m);
+      last_update_time_ = To_m.header.stamp;
+    }
+    catch (tf2::TransformException &ex)
+    {
+      ROS_WARN("%s",ex.what());
+    }   
+  }
+
+}
+
+geometry_msgs::TransformStamped::Ptr GazeboFakeLocalization::getModelTransform(const gazebo_msgs::ModelStates::ConstPtr& states)
+{
+  geometry_msgs::TransformStamped::Ptr t;
   
-  ros::NodeHandle nh;
-  ros::NodeHandle pnh("~");
+  std::vector<std::string>::const_iterator iter = std::find(states->name.begin(), states->name.end(), model_name_);
   
-  GazeboFakeLocalization pub(nh,pnh);
-  pub.init();
+  if( iter != states->name.end() )
+  {
+    int index = std::distance(states->name.begin(), iter);
+    const geometry_msgs::Pose& robot_state = states->pose[index];
+    
+    t = boost::make_shared<geometry_msgs::TransformStamped>();
+    
+    t->header.stamp = ros::Time::now();
+    t->header.frame_id = gazebo_frame_id_;
+    t->child_frame_id = base_frame_id_;
+    t->transform.translation.x = robot_state.position.x;
+    t->transform.translation.y = robot_state.position.y;
+    if(!zero_z_)
+      t->transform.translation.z = robot_state.position.z;
+    t->transform.rotation = robot_state.orientation;
+    
+  }
   
-  ros::spin();
+  return t;
+}
+
+
+void GazeboFakeLocalization::updateTransform(const gazebo_msgs::ModelStates::ConstPtr& states )
+{
+  if(states)
+  {
+    geometry_msgs::TransformStamped::Ptr t = getModelTransform(states);
+    
+    if(t && t->header.stamp > last_update_time_)
+    {
+      updateTransform(t);
+    }
+  }
+}
+
+void GazeboFakeLocalization::updateTransform()
+{
+  updateTransform(states_);
+}
+
+void GazeboFakeLocalization::stateCB(const gazebo_msgs::ModelStates::ConstPtr& states )
+{
+  states_ = states;
+}
+
+void GazeboFakeLocalization::timerCB(const ros::TimerEvent&)
+{
+    updateTransform();
+}
+
+
+void GazeboFakeLocalization::init()
+{
+  bool use_odom=false;
+  pnh_.getParam("use_odom", use_odom);
+  
+  if(use_odom)
+  {
+    nav_msgs::Odometry::ConstPtr odom_msg = ros::topic::waitForMessage<nav_msgs::Odometry>("odom", nh_);
+    odom_frame_id_ = odom_msg->header.frame_id;
+    base_frame_id_ = odom_msg->child_frame_id;
+  }
+  else
+  {
+    pnh_.getParam("base_frame_id", base_frame_id_);
+    pnh_.getParam("odom_frame_id", odom_frame_id_);
+  }
+  
+  // If not used, should just be the same as the odom_frame_id, which is how the original implementation worked
+  pnh_.param("output_frame_id", output_frame_id_, odom_frame_id_);
+
+  pnh_.getParam("model_name", model_name_);
+
+  pnh_.getParam("zero_z", zero_z_);
+  
+  double pub_freq = -1;
+  pnh_.getParam("freq", pub_freq);
+  
+  if(pub_freq <=0)
+  {
+    state_sub_ = nh_.subscribe("/gazebo/model_states", 1, &GazeboFakeLocalization::updateTransform, this);
+  }
+  else
+  {
+    state_sub_ = nh_.subscribe("/gazebo/model_states", 1, &GazeboFakeLocalization::stateCB, this);
+    
+    timer_ = nh_.createTimer(ros::Duration(1.0/pub_freq), &GazeboFakeLocalization::timerCB, this);
+  }
+  
+  
+
 }
