@@ -18,7 +18,7 @@
 
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <nav_msgs/Odometry.h>
-
+#include <geometry_msgs/PoseStamped.h>
 
 #include <gazebo_msgs/ModelStates.h>
 #include <gazebo_msgs/ModelState.h>
@@ -31,9 +31,10 @@ protected:
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener tf_listener_;
   tf2_ros::TransformBroadcaster tf_pub_;
-  ros::Subscriber state_sub_;
-  ros::Timer timer_;
-  
+  ros::Subscriber state_sub_; // Only active if pub_freq <= 0
+  ros::Timer timer_; // Only active if pub_freq > 0
+  ros::Publisher pose_pub_; // Only active if pub_pose_ is true
+
   std::string output_frame_id_, odom_frame_id_, base_frame_id_, gazebo_frame_id_, publish_frame_id;
   
   std::string model_name_;
@@ -43,6 +44,9 @@ protected:
   geometry_msgs::TransformStamped::Ptr Tr_m_;
 
   bool zero_z_;
+  bool pub_gt_pose_;
+  int throttle_gt_poses_;
+  int gt_pose_throttle_count_;
   ros::Time last_update_time_;
   
 public:

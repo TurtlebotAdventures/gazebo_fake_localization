@@ -47,8 +47,21 @@ void GazeboFakeLocalization::updateTransform(geometry_msgs::TransformStamped::Pt
     }
     catch (tf2::TransformException &ex)
     {
-      ROS_WARN("%s",ex.what());
-    }   
+      ROS_WARN("Gazebo_Gake_Localization: %s",ex.what());
+    }
+    if (pub_gt_pose_ && gt_pose_throttle_count_ == 0)
+    {
+      // intended for data saving purposes since rospy tf_buffer was struggling with sim resets in nav_scripts
+      // As such, publishes map -> robot pose directly, not map -> odom tf (which is the tf that is broadcast normally)
+      geometry_msgs::PoseStamped pose;
+      pose.header = Tr_m->header;
+      pose.pose.position.x = Tr_m->transform.translation.x;
+      pose.pose.position.y = Tr_m->transform.translation.y;
+      pose.pose.position.z = Tr_m->transform.translation.z;
+      pose.pose.orientation = Tr_m->transform.rotation;
+      pose_pub_.publish(pose);
+    }
+    gt_pose_throttle_count_ = (gt_pose_throttle_count_ + 1) % throttle_gt_poses_;
   }
 
 }
@@ -133,7 +146,17 @@ void GazeboFakeLocalization::init()
   pnh_.getParam("model_name", model_name_);
 
   pnh_.getParam("zero_z", zero_z_);
-  
+  pub_gt_pose_ = false;
+  pnh_.getParam("pub_gt_pose", pub_gt_pose_);
+  if (pub_gt_pose_)
+  {
+    // intended for data saving purposes since rospy tf_buffer was struggling with sim resets in nav_scripts
+    // As such, publishes map -> robot pose directly, not map -> odom tf (which is the tf that is broadcast normally)
+    pose_pub_ = nh_.advertise<geometry_msgs::PoseStamped>(output_frame_id_, 1);
+    throttle_gt_poses_ = 250;
+    pnh_.getParam("throttle_gt_poses", throttle_gt_poses_);
+    gt_pose_throttle_count_ = 0;
+  }
   double pub_freq = -1;
   pnh_.getParam("freq", pub_freq);
   

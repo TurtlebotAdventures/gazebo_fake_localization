@@ -27,7 +27,20 @@ void DirectPoseGazeboLocalization::updateTransform(geometry_msgs::TransformStamp
         }
         catch (tf2::TransformException &ex)
         {
-            ROS_WARN("%s",ex.what());
-        }   
+            ROS_WARN("DirectPoseGazeboLocalization: %s",ex.what());
+        }
+        if (pub_gt_pose_ && gt_pose_throttle_count_ == 0)
+        {
+            // intended for data saving purposes since rospy tf_buffer was struggling with sim resets in nav_scripts
+            // As such, publishes map -> robot pose directly, not map -> odom tf (which is the tf that is broadcast normally)
+            geometry_msgs::PoseStamped pose;
+            pose.header = Tr_m->header;
+            pose.pose.position.x = Tr_m->transform.translation.x;
+            pose.pose.position.y = Tr_m->transform.translation.y;
+            pose.pose.position.z = Tr_m->transform.translation.z;
+            pose.pose.orientation = Tr_m->transform.rotation;
+            pose_pub_.publish(pose);
+        }
+        gt_pose_throttle_count_ = (gt_pose_throttle_count_ + 1) % throttle_gt_poses_;
     }
 }
