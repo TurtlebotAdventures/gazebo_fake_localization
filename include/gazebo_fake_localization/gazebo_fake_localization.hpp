@@ -45,6 +45,7 @@ protected:
 
   bool zero_z_;
   bool pub_gt_pose_;
+  bool braodcast_tf_;
   int throttle_gt_poses_;
   int gt_pose_throttle_count_;
   ros::Time last_update_time_;

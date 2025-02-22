@@ -18,16 +18,18 @@ DirectPoseGazeboLocalization::DirectPoseGazeboLocalization(ros::NodeHandle& nh, 
 void DirectPoseGazeboLocalization::updateTransform(geometry_msgs::TransformStamped::Ptr Tr_m) {
     if(Tr_m)
     {
-        try
-        {
-            Tr_m->child_frame_id = output_frame_id_;
-            
-            tf_pub_.sendTransform(*Tr_m);
-            last_update_time_ = Tr_m->header.stamp;
-        }
-        catch (tf2::TransformException &ex)
-        {
-            ROS_WARN("DirectPoseGazeboLocalization: %s",ex.what());
+        if (braodcast_tf_) {
+            try
+            {
+                Tr_m->child_frame_id = output_frame_id_;
+                
+                tf_pub_.sendTransform(*Tr_m);
+                last_update_time_ = Tr_m->header.stamp;
+            }
+            catch (tf2::TransformException &ex)
+            {
+                ROS_WARN("DirectPoseGazeboLocalization: %s",ex.what());
+            }
         }
         if (pub_gt_pose_ && gt_pose_throttle_count_ == 0)
         {

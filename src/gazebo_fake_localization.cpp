@@ -31,23 +31,25 @@ void GazeboFakeLocalization::updateTransform(geometry_msgs::TransformStamped::Pt
 {
   if(Tr_m)
   {
-    try
-    {
-      geometry_msgs::TransformStamped To_r = tf_buffer_.lookupTransform(base_frame_id_, odom_frame_id_, Tr_m->header.stamp, ros::Duration(.1));
-      geometry_msgs::TransformStamped To_m;
-      
-      // Applies the Tr_m (robot in map frame i.e. gazebo_world -> robot) transform to the
-      // To_r (odom frame in robot frame i.e. robot -> odom) to get To_m (odom in map frame i.e. map -> odom) tf
-      tf2::doTransform(To_r, To_m, *Tr_m);
-      
-      To_m.child_frame_id = output_frame_id_;
-      
-      tf_pub_.sendTransform(To_m);
-      last_update_time_ = To_m.header.stamp;
-    }
-    catch (tf2::TransformException &ex)
-    {
-      ROS_WARN("Gazebo_Gake_Localization: %s",ex.what());
+    if (braodcast_tf_) {
+      try
+      {
+        geometry_msgs::TransformStamped To_r = tf_buffer_.lookupTransform(base_frame_id_, odom_frame_id_, Tr_m->header.stamp, ros::Duration(.1));
+        geometry_msgs::TransformStamped To_m;
+        
+        // Applies the Tr_m (robot in map frame i.e. gazebo_world -> robot) transform to the
+        // To_r (odom frame in robot frame i.e. robot -> odom) to get To_m (odom in map frame i.e. map -> odom) tf
+        tf2::doTransform(To_r, To_m, *Tr_m);
+        
+        To_m.child_frame_id = output_frame_id_;
+        
+        tf_pub_.sendTransform(To_m);
+        last_update_time_ = To_m.header.stamp;
+      }
+      catch (tf2::TransformException &ex)
+      {
+        ROS_WARN("Gazebo_Gake_Localization: %s",ex.what());
+      }
     }
     if (pub_gt_pose_ && gt_pose_throttle_count_ == 0)
     {
@@ -125,6 +127,13 @@ void GazeboFakeLocalization::timerCB(const ros::TimerEvent&)
 
 void GazeboFakeLocalization::init()
 {
+  braodcast_tf_ = true;
+  pnh_.getParam("broadcast_tf", braodcast_tf_);
+  pub_gt_pose_ = false;
+  pnh_.getParam("pub_gt_pose", pub_gt_pose_);
+  if (!braodcast_tf_) {
+    ROS_WARN("Gazebo Fake Localization configured to not broadcasting tf, publishing gt_pose as topic instead: %d", braodcast_tf_);
+  }
   bool use_odom=false;
   pnh_.getParam("use_odom", use_odom);
   
@@ -146,8 +155,6 @@ void GazeboFakeLocalization::init()
   pnh_.getParam("model_name", model_name_);
 
   pnh_.getParam("zero_z", zero_z_);
-  pub_gt_pose_ = false;
-  pnh_.getParam("pub_gt_pose", pub_gt_pose_);
   if (pub_gt_pose_)
   {
     // intended for data saving purposes since rospy tf_buffer was struggling with sim resets in nav_scripts
