@@ -11,7 +11,7 @@
 DirectPoseGazeboLocalization::DirectPoseGazeboLocalization(ros::NodeHandle& nh, ros::NodeHandle& pnh) : GazeboFakeLocalization(nh, pnh)
 {}
 
-// tf naming convention: Ttarget_source refers to the transform of the target frame in the source reference frame
+// tf naming convention: Target_source refers to the transform of the target frame in the source reference frame
 //                       i.e. the tf that defines source -> target.
 //                       r = robot (base_frame_id_), m = map (gazebo_frame_id_), o = odom (odom_frame_id_)
 //    ex.) Tr_m is the transform of the robot in the map reference frame. i.e. it is the ground truth robot pose
@@ -22,9 +22,12 @@ void DirectPoseGazeboLocalization::updateTransform(geometry_msgs::TransformStamp
             try
             {
                 Tr_m->child_frame_id = output_frame_id_;
-                
-                tf_pub_.sendTransform(*Tr_m);
-                last_update_time_ = Tr_m->header.stamp;
+                Tr_m->header.stamp += ros::Duration(0.002); // to avoid tf2 warnings
+                if(last_time_ < Tr_m->header.stamp)
+                {
+                    tf_pub_.sendTransform(*Tr_m);
+                    last_time_ = Tr_m->header.stamp;
+                }
             }
             catch (tf2::TransformException &ex)
             {

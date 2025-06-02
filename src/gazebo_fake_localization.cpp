@@ -42,9 +42,13 @@ void GazeboFakeLocalization::updateTransform(geometry_msgs::TransformStamped::Pt
         tf2::doTransform(To_r, To_m, *Tr_m);
         
         To_m.child_frame_id = output_frame_id_;
-        
-        tf_pub_.sendTransform(To_m);
-        last_update_time_ = To_m.header.stamp;
+    
+        To_m.header.stamp += ros::Duration(0.002); // to avoid tf2 warnings
+        if(last_time_ < To_m.header.stamp)
+        {
+          tf_pub_.sendTransform(To_m);
+          last_time_ = To_m.header.stamp;
+        }
       }
       catch (tf2::TransformException &ex)
       {
