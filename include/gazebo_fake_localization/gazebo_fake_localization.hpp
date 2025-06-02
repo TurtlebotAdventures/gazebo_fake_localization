@@ -35,6 +35,8 @@ protected:
   ros::Timer timer_; // Only active if pub_freq > 0
   ros::Publisher pose_pub_; // Only active if pub_pose_ is true
 
+  ros::Time last_time_ = ros::Time(0);
+  
   std::string output_frame_id_, odom_frame_id_, base_frame_id_, gazebo_frame_id_, publish_frame_id;
   
   std::string model_name_;

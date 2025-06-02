@@ -180,8 +180,5 @@ void GazeboFakeLocalization::init()
     state_sub_ = nh_.subscribe("/gazebo/model_states", 1, &GazeboFakeLocalization::stateCB, this);
     
     timer_ = nh_.createTimer(ros::Duration(1.0/pub_freq), &GazeboFakeLocalization::timerCB, this);
-  }
-  
-  
-
+  }  
 }

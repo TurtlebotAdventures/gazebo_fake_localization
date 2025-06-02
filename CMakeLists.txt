@@ -19,33 +19,34 @@ include_directories(
 
 catkin_package(
   INCLUDE_DIRS include
-  LIBRARIES gazebo_fake_localization
+  LIBRARIES gazebo_fake_localization_lib
   CATKIN_DEPENDS roscpp tf2_ros tf2_geometry_msgs nav_msgs gazebo_msgs
 )
 
 
-add_library(gazebo_fake_localization
+add_library(gazebo_fake_localization_lib
   src/gazebo_fake_localization.cpp
   src/direct_pose_gazebo_fake_localization.cpp
 )
 
-target_link_libraries(gazebo_fake_localization
+target_link_libraries(gazebo_fake_localization_lib
    ${catkin_LIBRARIES}
 )
 
 # Add executable nodes
-add_executable(gazebo_fake_localization_node src/gazebo_fake_localization_node.cpp)
-add_executable(direct_pose_gazebo_fake_localization_node src/direct_pose_gazebo_fake_localization_node.cpp)
+add_executable(gazebo_fake_localization src/gazebo_fake_localization_node.cpp)
+add_executable(direct_pose_gazebo_fake_localization src/direct_pose_gazebo_fake_localization_node.cpp)
 
 # Link executables to the gazebo_fake_localization library
-target_link_libraries(gazebo_fake_localization_node
-  gazebo_fake_localization
+target_link_libraries(gazebo_fake_localization
+  gazebo_fake_localization_lib
   ${catkin_LIBRARIES}
 )
 
-target_link_libraries(direct_pose_gazebo_fake_localization_node
-  gazebo_fake_localization
+target_link_libraries(direct_pose_gazebo_fake_localization
+  gazebo_fake_localization_lib
   ${catkin_LIBRARIES}
 )
 
 add_dependencies(gazebo_fake_localization ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(direct_pose_gazebo_fake_localization ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
