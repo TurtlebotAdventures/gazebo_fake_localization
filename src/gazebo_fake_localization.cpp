@@ -52,7 +52,7 @@ void GazeboFakeLocalization::updateTransform(geometry_msgs::TransformStamped::Pt
       }
       catch (tf2::TransformException &ex)
       {
-        ROS_WARN("Gazebo_Gake_Localization: %s",ex.what());
+        ROS_WARN("Gazebo_Fake_Localization: %s",ex.what());
       }
     }
     if (pub_gt_pose_ && gt_pose_throttle_count_ == 0)
